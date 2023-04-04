@@ -228,6 +228,10 @@ unsigned caml_plat_spin_wait(unsigned spins,
                              const char* file, int line,
                              const char* function)
 {
+#ifdef _WIN32
+  HANDLE hTimer = NULL;
+  LARGE_INTEGER liDueTime;
+#endif
   unsigned next_spins;
   if (spins < Min_sleep_ns) spins = Min_sleep_ns;
   if (spins > Max_sleep_ns) spins = Max_sleep_ns;
@@ -235,8 +239,29 @@ unsigned caml_plat_spin_wait(unsigned spins,
   if (spins < Slow_sleep_ns && Slow_sleep_ns <= next_spins) {
     caml_gc_log("Slow spin-wait loop in %s at %s:%d", function, file, line);
   }
+
 #ifdef _WIN32
-  Sleep(1 + spins/1000000);
+  liDueTime.QuadPart = (spins/100) * -1LL;
+
+  // Create an unnamed waitable timer.
+  hTimer = CreateWaitableTimer(NULL, TRUE, NULL);
+  if (NULL == hTimer)
+  {
+    caml_fatal_error("CreateWaitableTimer failed");
+    return -1;
+  }
+
+  // Set a timer to wait for 10 seconds.
+  if (!SetWaitableTimer(hTimer, &liDueTime, 0, NULL, NULL, 0))
+  {
+    caml_fatal_error("SetWaitableTimer failed");
+    return -1;
+  }
+
+  // Wait for the timer.
+  if (WaitForSingleObject(hTimer, INFINITE) != WAIT_OBJECT_0)
+    caml_fatal_error("WaitForSingleObject failed");
+  //Sleep(1 + spins/1000000);
 #else
   usleep(spins/1000);
 #endif
