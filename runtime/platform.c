@@ -224,14 +224,44 @@ void caml_mem_unmap(void* mem, uintnat size)
 #define Slow_sleep_ns    1000000 //  1 ms
 #define Max_sleep_ns  1000000000 //  1 s
 
+
+#ifdef _WIN32
+void win32_usleep(unsigned micro_secs)
+{
+  unsigned milli_secs;
+  //static LARGE_INTEGER freq = NULL;
+  //if (freq == NULL) QueryPerformanceFrequency(&freq);
+
+  if (micro_secs != 0)
+  {
+    milli_secs = micro_secs / 1000;
+    //micro_secs = micro_secs % 1000;
+    if (milli_secs != 0)
+    {
+      Sleep(milli_secs);
+    }
+    else
+    {
+      __int64 delta;
+      LARGE_INTEGER start, after;
+      LARGE_INTEGER freq;
+      QueryPerformanceFrequency(&freq);
+      QueryPerformanceCounter(&start);
+      do {
+	//cpu_relax();
+	QueryPerformanceCounter(&after);
+	delta = 1000000 * (after.QuadPart - start.QuadPart) / freq.QuadPart;
+      } while (delta < micro_secs);
+    }
+  }
+  return;
+}
+#endif
+
 unsigned caml_plat_spin_wait(unsigned spins,
                              const char* file, int line,
                              const char* function)
 {
-#ifdef _WIN32
-  HANDLE hTimer = NULL;
-  LARGE_INTEGER liDueTime;
-#endif
   unsigned next_spins;
   if (spins < Min_sleep_ns) spins = Min_sleep_ns;
   if (spins > Max_sleep_ns) spins = Max_sleep_ns;
@@ -241,27 +271,7 @@ unsigned caml_plat_spin_wait(unsigned spins,
   }
 
 #ifdef _WIN32
-  liDueTime.QuadPart = (spins/100) * -1LL;
-
-  // Create an unnamed waitable timer.
-  hTimer = CreateWaitableTimer(NULL, TRUE, NULL);
-  if (NULL == hTimer)
-  {
-    caml_fatal_error("CreateWaitableTimer failed");
-    return -1;
-  }
-
-  // Set a timer to wait for 10 seconds.
-  if (!SetWaitableTimer(hTimer, &liDueTime, 0, NULL, NULL, 0))
-  {
-    caml_fatal_error("SetWaitableTimer failed");
-    return -1;
-  }
-
-  // Wait for the timer.
-  if (WaitForSingleObject(hTimer, INFINITE) != WAIT_OBJECT_0)
-    caml_fatal_error("WaitForSingleObject failed");
-  //Sleep(1 + spins/1000000);
+  win32_usleep(spins/1000);
 #else
   usleep(spins/1000);
 #endif
