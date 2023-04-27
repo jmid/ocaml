@@ -226,26 +226,23 @@ void caml_mem_unmap(void* mem, uintnat size)
 
 
 #ifdef _WIN32
-void caml_win32_usleep(unsigned micro_secs)
+int caml_win32_usleep(unsigned micro_secs)
 {
-  unsigned milli_secs;
-  if (micro_secs == 0) return;
-
-  milli_secs = micro_secs / 1000;
-  if (milli_secs != 0) {
-    Sleep(milli_secs);
+  //if (micro_secs == 0) return;
+  if (micro_secs < 1000) {
+    int64_t nano_secs, start, delta;
+    start = caml_time_counter();
+    nano_secs = 1000 * micro_secs;
+    do {
+      cpu_relax();
+      delta = caml_time_counter() - start;
+    } while (delta < nano_secs);
   }
   else
     {
-      int64_t nano_secs, start, delta;
-      nano_secs = 1000 * micro_secs;
-      start = caml_time_counter();
-      do {
-	cpu_relax();
-	delta = caml_time_counter() - start;
-      } while (delta < nano_secs);
+      Sleep(micro_secs / 1000);
     }
-  return;
+  return 0;
 }
 #endif
 
