@@ -226,34 +226,25 @@ void caml_mem_unmap(void* mem, uintnat size)
 
 
 #ifdef _WIN32
-void win32_usleep(unsigned micro_secs)
+void caml_win32_usleep(unsigned micro_secs)
 {
   unsigned milli_secs;
-  //static LARGE_INTEGER freq = NULL;
-  //if (freq == NULL) QueryPerformanceFrequency(&freq);
+  if (micro_secs == 0) return;
 
-  if (micro_secs != 0)
-  {
-    milli_secs = micro_secs / 1000;
-    //micro_secs = micro_secs % 1000;
-    if (milli_secs != 0)
-    {
-      Sleep(milli_secs);
-    }
-    else
-    {
-      __int64 delta;
-      LARGE_INTEGER start, after;
-      LARGE_INTEGER freq;
-      QueryPerformanceFrequency(&freq);
-      QueryPerformanceCounter(&start);
-      do {
-	//cpu_relax();
-	QueryPerformanceCounter(&after);
-	delta = 1000000 * (after.QuadPart - start.QuadPart) / freq.QuadPart;
-      } while (delta < micro_secs);
-    }
+  milli_secs = micro_secs / 1000;
+  if (milli_secs != 0) {
+    Sleep(milli_secs);
   }
+  else
+    {
+      int64_t nano_secs, start, delta;
+      nano_secs = 1000 * micro_secs;
+      start = caml_time_counter();
+      do {
+	cpu_relax();
+	delta = caml_time_counter() - start;
+      } while (delta < nano_secs);
+    }
   return;
 }
 #endif
@@ -271,7 +262,7 @@ unsigned caml_plat_spin_wait(unsigned spins,
   }
 
 #ifdef _WIN32
-  win32_usleep(spins/1000);
+  caml_win32_usleep(spins/1000);
 #else
   usleep(spins/1000);
 #endif
