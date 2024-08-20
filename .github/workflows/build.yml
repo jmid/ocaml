@@ -141,3 +141,98 @@ jobs:
         if: matrix.id == 'normal'
         run: |
           MAKE_ARG=-j OCAMLRUNPARAM=b,v=0 bash -xe tools/ci/actions/runner.sh other-checks
+
+
+# normal: running the multicoretests suite
+# debug: running the multicoretests suite with the
+#        debug runtime, minor heap verification, and a small minor heap.
+  multicoretests:
+    name: 'Run multicoretests'
+    needs: build
+    runs-on: 'ubuntu-latest'
+    strategy:
+      matrix:
+        include:
+          - id: normal
+            name: normal
+          - id: debug
+            name: debug
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: compiler
+      - name: Unpack Artifact
+        run: |
+          tar --zstd -xf sources.tar.zstd
+          rm -f sources.tar.zstd
+      - name: Install Artifact
+        run: |
+          make install
+
+      - name: Fetch dune
+        uses: actions/checkout@v4
+        with:
+          repository: ocaml/dune
+          ref: 3.16.0
+          path: dune
+
+      - name: Compile dune
+        shell: bash -e {0}
+        run: |
+          export PATH="/home/runner/local/bin:$PATH"                                                        #
+          export CAML_LD_LIBRARY_PATH='/home/runner/local/lib/ocaml/stublibs:/home/runner/local/lib/ocaml'  #
+          export PREFIX='/home/runner/local'                                                                #
+          cd dune                                                                                           #
+          make release                                                                                      #
+          make install                                                                                      #
+
+      - name: Display configuration and set up PATH
+        run: |
+          /home/runner/local/bin/ocamlc -config
+          /home/runner/local/bin/dune --version
+          echo "/home/runner/local/bin" >> $GITHUB_PATH
+
+      - name: Fetch multicoretests
+        uses: actions/checkout@v4
+        with:
+          repository: ocaml-multicore/multicoretests
+          path: multicoretests
+
+      - name: Fetch QCheck
+        uses: actions/checkout@v4
+        with:
+          repository: c-cube/qcheck
+          path: multicoretests/qcheck
+
+      - name: Build multicoretests
+        if: matrix.id == 'normal'
+        shell: bash -e {0}
+        run: |
+          cd multicoretests                         #
+          dune build src/                           #
+
+      - name: Run multicoretests
+        if: matrix.id == 'normal'
+        env:
+          QCHECK_MSG_INTERVAL: 60
+        run: |
+          cd multicoretests
+          dune runtest -j1 --no-buffer --display=quiet --cache=disabled --error-reporting=twice src/
+
+      - name: Build multicoretests (debug runtime)
+        if: matrix.id == 'debug'
+        shell: bash -e {0}
+        run: |
+          cd multicoretests                         #
+          dune build --profile=debug-runtime src/   #
+
+      - name: Run multicoretests (debug runtime)
+        if: matrix.id == 'debug'
+        env:
+          QCHECK_MSG_INTERVAL: 60
+          OCAMLRUNPARAM: s=4096,v=0,V=1
+          USE_RUNTIME: d
+        run: |
+          cd multicoretests
+          dune runtest -j1 --no-buffer --display=quiet --cache=disabled --error-reporting=twice --profile=debug-runtime src/
