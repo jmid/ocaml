@@ -184,6 +184,7 @@ jobs:
           export CAML_LD_LIBRARY_PATH='/home/runner/local/lib/ocaml/stublibs:/home/runner/local/lib/ocaml'  #
           export PREFIX='/home/runner/local'                                                                #
           cd dune                                                                                           #
+          touch dune-workspace                                                                              #
           make release                                                                                      #
           make install                                                                                      #
 
