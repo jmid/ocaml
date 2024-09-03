@@ -150,6 +150,7 @@ jobs:
     name: 'Run multicoretests'
     needs: build
     runs-on: 'ubuntu-latest'
+    if: contains(github.event.pull_request.labels.*.name, 'run-multicoretests')
     strategy:
       matrix:
         include:
