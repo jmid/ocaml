@@ -154,6 +154,7 @@ static uintnat norm_custom_min (uintnat p)
 
 CAMLprim value caml_gc_set(value v)
 {
+  CAMLparam1 (v);
   uintnat newminwsz = caml_norm_minor_heap_size (Long_val (Field (v, 0)));
   uintnat newpf = norm_pfree (Long_val (Field (v, 2)));
   uintnat new_verb_gc = Long_val (Field (v, 3));
@@ -222,7 +223,7 @@ CAMLprim value caml_gc_set(value v)
   }
 
   CAML_EV_END(EV_EXPLICIT_GC_SET);
-  return Val_unit;
+  CAMLreturn(Val_unit);
 }
 
 CAMLprim value caml_gc_minor(value v)
