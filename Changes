@@ -226,6 +226,14 @@ Working version
 
 ### Bug fixes:
 
+- #13691: Make four globals underlying Gc.control atomic to avoid C data
+  races against them
+  (Jan Midtgaard, review by Miod Vallat)
+
+- #13408: Fix misplaced debug runtime assertion triggerable by a race
+  between domain exit and backup thread
+  (Miod Vallat and Gabriel Scherer, report by Jan Midtgaard)
+
 - #13454: Output a correct trace of the C_CALLN bytecode.
   (Miod Vallat, review by Antonin Décimo)
 
