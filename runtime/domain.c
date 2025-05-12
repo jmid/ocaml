@@ -2072,7 +2072,9 @@ void caml_domain_terminate(bool last)
 
     caml_orphan_ephemerons(domain_state);
     caml_orphan_finalisers(domain_state);
-    caml_orphan_shared_heap(domain_state->shared_heap);
+    if (domain_state->marking_done && domain_state->sweeping_done) {
+      caml_orphan_shared_heap(domain_state->shared_heap);
+    }
 
     /* No need to check for interrupts if we are the last domain running. */
     if (last) {
