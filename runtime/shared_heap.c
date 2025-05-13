@@ -1359,6 +1359,21 @@ void caml_compact_heap(caml_domain_state* domain_state,
     caml_scan_global_roots(&compact_update_value, NULL);
   }
 
+  #ifdef DEBUG
+  /* Recheck preconditions for the shared heap: */
+  for (int sz_class = 1; sz_class < NUM_SIZECLASSES; sz_class++) {
+    /* Still no pools waiting for adoption */
+    if (participants[0] == Caml_state) {
+      CAMLassert(
+          atomic_load_relaxed(&pool_freelist.global_avail_pools[sz_class]) ==
+            NULL);
+      CAMLassert(
+          atomic_load_relaxed(&pool_freelist.global_full_pools[sz_class]) ==
+            NULL);
+    }
+  }
+  #endif
+
   /* Shared heap pools. */
   for (int sz_class = 1; sz_class < NUM_SIZECLASSES; sz_class++) {
     compact_update_pools(heap->unswept_avail_pools[sz_class]);
